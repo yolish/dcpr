@@ -12,40 +12,32 @@ import time
 from .datasets.CameraPoseDataset import CameraPoseDataset
 from .models.pose_losses import CameraPoseLoss
 from .models.pose_regressors import get_model
+from os.path import join
 
 
 if __name__ == "__main__":
-    # parse the arguments
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("model_name",
                             help="name of model to create (e.g. posenet, transposenet")
-    arg_parser.add_argument("mode", help="train or eval'")
-    arg_parser.add_argument("backbone_path", help="path to backbone .pth - e.g. efficientnet, resnet50")
+    arg_parser.add_argument("mode", help="train or eval")
+    arg_parser.add_argument("backbone_path", help="path to backbone .pth - e.g. efficientnet")
     arg_parser.add_argument("dataset_path", help="path to the physical location of the dataset")
     arg_parser.add_argument("labels_file", help="path to a file mapping images to their poses")
     arg_parser.add_argument("--checkpoint_path",
                             help="path to a pre-trained model (should match the model indicated in model_name")
+    arg_parser.add_argument("--experiment", help="a short string to describe the experiment/commit used")
 
     args = arg_parser.parse_args()
     utils.init_logger()
 
-    checkpoint_prefix = ""
+    # Record execution details
     logging.info("Start {} with {}".format(args.model_name, args.mode))
+    if args.experiment is not None:
+        logging.info("Experiment details: {}".format(args.experiment))
+    logging.info("Using dataset: {}".format(args.dataset_path))
+    logging.info("Using labels file: {}".format(args.labels_file))
 
-    use_cuda = torch.cuda.is_available()
-    # Set the seeds and the device
-    device_id = 'cpu'
-    torch_seed = 0
-    numpy_seed = 2
-    torch.manual_seed(torch_seed)
-    if use_cuda:
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-        device_id = 'cuda:0'
-    np.random.seed(numpy_seed)
-    device = torch.device(device_id)
-
-    # Read config
+    # Read configuration
     with open('config.json', "r") as read_file:
         config = json.load(read_file)
     model_params = config[args.model_name]
@@ -54,17 +46,31 @@ if __name__ == "__main__":
     logging.info("Running with configuration:\n{}".format(
         '\n'.join(["\t{}: {}".format(k, v) for k, v in config.items()])))
 
-    # Set the model
+    # Set the seeds and the device
+    use_cuda = torch.cuda.is_available()
+    device_id = 'cpu'
+    torch_seed = 0
+    numpy_seed = 2
+    torch.manual_seed(torch_seed)
+    if use_cuda:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        device_id = config.get('device_id')
+    np.random.seed(numpy_seed)
+    device = torch.device(device_id)
+
+    # Create the model
     model = get_model(args.model_name, args.backbone_path, config).to(device)
     # Load the checkpoint if needed
     if args.checkpoint_path:
-        model.load_state_dict(torch.load(args.backbone_path, map_location=device_id))
+        model.load_state_dict(torch.load(args.checkpoint_path, map_location=device_id))
+        logging.info("Initializing from checkpoint: {}".format(args.args.checkpoint_path))
 
     if args.mode == 'train':
         # Set to train mode
         model.train()
 
-        # Freeze parts of the network if indicated
+        # Freeze parts of the model if indicated
         freeze = config.get("freeze")
         freeze_exclude_phrase = config.get("freeze_exclude_phrase")
         if freeze:
@@ -106,7 +112,7 @@ if __name__ == "__main__":
         n_epochs = config.get("n_epochs")
 
         # Train
-        checkpoint_prefix = utils.get_stamp_from_log()
+        checkpoint_prefix = join(utils.create_output_dir('out'),utils.get_stamp_from_log())
         n_total_samples = 0.0
         loss_vals = []
         sample_count = []
@@ -167,8 +173,7 @@ if __name__ == "__main__":
         logging.info('Training completed')
         # Plot the loss function
         loss_fig_path = checkpoint_prefix + "_loss_fig.png"
-
-
+        utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
 
     else: # Test
         # Set to eval mode
@@ -208,11 +213,12 @@ if __name__ == "__main__":
                 stats[i, 2] = (toc - tic)*1000
 
                 # Record
-                logging.info("Pose error: {}[m], {}[deg], inferrred in {}[ms]".format(
+                logging.info("Pose error: {}[m], {}[deg], inferred in {}[ms]".format(
                     stats[i, 0],  stats[i, 1],  stats[i, 2]))
 
-        # Record statistics
-        logging.info("Median pose error: {}[m], {}[deg]".format(np.median(stats[0], stats[1])))
+        # Record overall statistics
+        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.labels_file))
+        logging.info("Median pose error: {}[m], {}[deg]".format(np.median(stats[0], np.median(stats[1]))))
         logging.info("Mean inference time:{}[ms".format(np.median(stats[2])))
 
 
