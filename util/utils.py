@@ -7,6 +7,7 @@ import time
 from os import mkdir, getcwd
 import torch
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Logging and output utils
 ##########################
@@ -33,7 +34,6 @@ def create_output_dir(name):
 def init_logger():
     """
     Initialize the logger and create a time stamp for the file
-    :return:
     """
     path = split(realpath(__file__))[0]
 
@@ -43,7 +43,7 @@ def init_logger():
         filename = ''.join([filename, "_", time.strftime("%d_%m_%y_%H_%M", time.localtime()), ".log"])
 
         # Creating logs' folder is needed
-        log_path = create_output_dir('logs')
+        log_path = create_output_dir('out')
 
         log_config_dict.get('handlers').get('file_handler')['filename'] = join(log_path, filename)
         logging.config.dictConfig(log_config_dict)
