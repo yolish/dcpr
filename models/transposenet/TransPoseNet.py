@@ -5,7 +5,7 @@ The TransPoseNet model
 import torch
 import torch.nn.functional as F
 from torch import nn
-from .transformer import Transformer
+from .transformer_encoder import Transformer
 from .pencoder import NestedTensor, nested_tensor_from_tensor_list
 from .backbone import build_backbone
 
@@ -18,6 +18,7 @@ class TransPoseNet(nn.Module):
         super().__init__()
 
         config["backbone"] = pretrained_path
+        config["learn_embedding_with_pose_token"] = True
         self.backbone = build_backbone(config)
         self.transformer_t = Transformer(config)
         self.transformer_rot = Transformer(config)
