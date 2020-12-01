@@ -1,6 +1,6 @@
 from .posenet.PoseNet import PoseNet
 from .transposenet.TransPoseNet import TransPoseNet
-
+from .transposenet.MSTransPoseNet import MSTransPoseNet
 
 def get_model(model_name, backbone_path, config):
     """
@@ -14,5 +14,7 @@ def get_model(model_name, backbone_path, config):
         return PoseNet(backbone_path)
     elif model_name == 'transposenet':
         return TransPoseNet(config, backbone_path)
+    elif model_name == 'ms-transposenet':
+        return MSTransPoseNet(config, backbone_path)
     else:
         raise "{} not supported".format(model_name)
