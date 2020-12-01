@@ -145,10 +145,42 @@ class PositionEmbeddingLearnedWithPoseToken(nn.Module):
         ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
         return p_emb, m_emb
 
+class PositionEmbeddingLearned(nn.Module):
+    """
+    Absolute pos embedding, learned.
+    """
+    def __init__(self, num_pos_feats=256):
+        super().__init__()
+        self.row_embed = nn.Embedding(50, num_pos_feats)
+        self.col_embed = nn.Embedding(50, num_pos_feats)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.uniform_(self.row_embed.weight)
+        nn.init.uniform_(self.col_embed.weight)
+
+    def forward(self, tensor_list: NestedTensor):
+        x = tensor_list.tensors
+        h, w = x.shape[-2:]
+        i = torch.arange(w, device=x.device)
+        j = torch.arange(h, device=x.device)
+        x_emb = self.col_embed(i)
+        y_emb = self.row_embed(j)
+        pos = torch.cat([
+            x_emb.unsqueeze(0).repeat(h, 1, 1),
+            y_emb.unsqueeze(1).repeat(1, w, 1),
+        ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+        return pos
+
 
 def build_position_encoding(config):
     hidden_dim = config.get("hidden_dim")
     N_steps = hidden_dim // 2
-    position_embedding = PositionEmbeddingLearnedWithPoseToken(N_steps)#PositionEmbeddingSine(N_steps)#PositionEmbeddingLearnedWithPoseToken(N_steps)
+    learn_embedding_with_pose_token = config.get("learn_embedding_with_pose_token")
+    if learn_embedding_with_pose_token:
+        position_embedding = PositionEmbeddingLearnedWithPoseToken(N_steps)
+    else:
+        PositionEmbeddingLearned(N_steps)
+
 
     return position_embedding
