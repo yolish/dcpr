@@ -48,10 +48,14 @@ class Joiner(nn.Sequential):
         for name, x in xs.items():
             out.append(x)
             # position encoding
-            p_emb, m_emb = self[1](x)
-            pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
-        return out, pos
+            ret = self[1](x)
+            if isinstance(ret, 'tuple'):
+                p_emb, m_emb = ret
+                pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
+            else:
+                pos.append(ret.to(x.tensors.dtype))
 
+        return out, pos
 
 def build_backbone(config):
     position_embedding = build_position_encoding(config)
