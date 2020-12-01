@@ -79,7 +79,8 @@ if __name__ == "__main__":
                     parameter.requires_grad_(False)
 
         # Set the loss
-        loss = CameraPoseLoss(config)
+        pose_loss = CameraPoseLoss(config).to(device)
+        nll_loss = nn.NLLLoss()
 
         # Set the optimizer and scheduler
         params = list(model.parameres()) + list(loss.parameters())
@@ -125,6 +126,7 @@ if __name__ == "__main__":
             for batch_idx, minibatch in enumerate(dataloader):
                 img = minibatch.get('img').to(device)
                 gt_pose = minibatch.get('pose').to(device).to(dtype=torch.float32)
+                gt_scene = minibatch.get('scene').to(device)
                 batch_size = img.shape[0]
                 n_samples += batch_size
                 n_total_samples += batch_size
@@ -144,8 +146,13 @@ if __name__ == "__main__":
                 else:
                     est_pose = model(img)
 
-                # Pose loss
-                criterion = loss(est_pose, gt_pose)
+                if instanceof(est_pose, tuple):
+                    est_pose, log_scene_distr = est_pose
+                    # Pose Loss + Scene Loss
+                    criterion = loss(est_pose, gt_pose) + nll_loss(log_scene_distr, gt_scene)
+                else:
+                    # Pose loss
+                    criterion = loss(est_pose, gt_pose)
 
                 # Collect for recoding and plotting
                 running_loss += criterion.item()
