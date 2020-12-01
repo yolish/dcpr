@@ -18,8 +18,7 @@ class CameraPoseDataset(Dataset):
         :return: an instance of the class
         """
         super(CameraPoseDataset, self).__init__()
-        self.img_paths, self.poses = read_labels_file(labels_file, dataset_path)
-        self.poses = []
+        self.img_paths, self.poses, self.scenes = read_labels_file(labels_file, dataset_path)
 
     def __len__(self):
         return self.poses.shape[0]
@@ -27,16 +26,18 @@ class CameraPoseDataset(Dataset):
     def __getitem__(self, idx):
         img = imread(self.paths[idx])
         pose = self.poses[idx]
+        scene = self.scenes[idx]
         if self.transform:
             img = self.transform(img)
 
-        sample = {'img': img, 'pose': pose}
+        sample = {'img': img, 'pose': pose, 'scene': scene}
         return sample
 
 
 def read_labels_file(labels_file, dataset_path):
-    df = pd.read_csv(labels_file, converters={'scene': str})
+    df = pd.read_csv(labels_file)
     imgs_paths = [join(dataset_path, path) for path in df['img_path'].values]
+    scenes = df['scene'].values
     n = df.shape[0]
     poses = np.zeros(n, 7)
     poses[:, 0] = df['t1'].values
@@ -46,7 +47,7 @@ def read_labels_file(labels_file, dataset_path):
     poses[:, 4] = df['q2'].values
     poses[:, 5] = df['q3'].values
     poses[:, 6] = df['q4'].values
-    return imgs_paths, poses
+    return imgs_paths, poses, scenes
 
 
 
