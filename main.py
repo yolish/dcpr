@@ -1,5 +1,5 @@
 """
-Entry point for deep camera pose regression
+Entry point training and testing TransPoseNet
 """
 import argparse
 import torch
@@ -7,11 +7,11 @@ import numpy as np
 import json
 from torchvision import transforms
 import logging
-from .util import utils
+from util import utils
 import time
-from .datasets.CameraPoseDataset import CameraPoseDataset
-from .models.pose_losses import CameraPoseLoss
-from .models.pose_regressors import get_model
+from datasets.CameraPoseDataset import CameraPoseDataset
+from models.pose_losses import CameraPoseLoss
+from models.pose_regressors import get_model
 from os.path import join
 
 
@@ -80,10 +80,10 @@ if __name__ == "__main__":
 
         # Set the loss
         pose_loss = CameraPoseLoss(config).to(device)
-        nll_loss = nn.NLLLoss()
+        nll_loss = torch.nn.NLLLoss()
 
         # Set the optimizer and scheduler
-        params = list(model.parameres()) + list(loss.parameters())
+        params = list(model.parameters()) + list(pose_loss.parameters())
         optim = torch.optim.Adam(filter(lambda p: p.requires_grad, params),
                                   lr=config.get('lr'),
                                   eps=config.get('eps'),
@@ -146,13 +146,13 @@ if __name__ == "__main__":
                 else:
                     est_pose = model(img)
 
-                if instanceof(est_pose, tuple):
+                if isinstance(est_pose, tuple):
                     est_pose, log_scene_distr = est_pose
                     # Pose Loss + Scene Loss
-                    criterion = loss(est_pose, gt_pose) + nll_loss(log_scene_distr, gt_scene)
+                    criterion = pose_loss(est_pose, gt_pose) + nll_loss(log_scene_distr, gt_scene)
                 else:
                     # Pose loss
-                    criterion = loss(est_pose, gt_pose)
+                    criterion = pose_loss(est_pose, gt_pose)
 
                 # Collect for recoding and plotting
                 running_loss += criterion.item()
@@ -166,13 +166,13 @@ if __name__ == "__main__":
                 # Record loss and performance on train set
                 if batch_idx % n_freq_print == 0:
                     posit_err, orient_err = utils.pose_err(est_pose.detach(), gt_pose.detach())
-                    logging.info("[{}/{}] running camera pose loss: {}, camera pose error: {}[m], {}[deg]".format(epoch,
-                                                                                                batch_idx, running_loss/n_samples),
+                    logging.info("[Batch-{}/Epoch-{}] running camera pose loss: {:.3f}, camera pose error: {:.2f}[m], {:.2f}[deg]".format(
+                                                                                                batch_idx+1, epoch+1, (running_loss/n_samples),
                                                                                                 posit_err.mean().item(),
-                                                                                               orient_err.mean().item())
+                                                                                                orient_err.mean().item()))
             # Save checkpoint
-            if epoch % n_freq_checkpoint == 0 and epoch != 0:
-                torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format())
+            if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
+                torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
 
             # Scheduler update
             scheduler.step()
