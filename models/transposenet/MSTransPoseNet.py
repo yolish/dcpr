@@ -11,7 +11,7 @@ from .backbone import build_backbone
 from .TransPoseNet import PoseRegressor
 
 
-class TransPoseNet(nn.Module):
+class MSTransPoseNet(nn.Module):
 
     def __init__(self, config, pretrained_path):
         """ Initializes the model.
@@ -23,20 +23,20 @@ class TransPoseNet(nn.Module):
         num_scenes = config.get("num_scenes")
         self.backbone = build_backbone(config)
 
-        self.input_proj_t = nn.Conv2d(self.backbone.num_channels[0], decoder_dim, kernel_size=1)
-        self.input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
-
         self.transformer_t = Transformer(config)
         self.transformer_rot = Transformer(config)
 
         decoder_dim = self.transformer_t.d_model
 
-        self.query_embed_t = nn.Embedding(num_scenes, hidden_dim)
-        self.query_embed_rot = nn.Embedding(num_scenes, hidden_dim)
+        self.input_proj_t = nn.Conv2d(self.backbone.num_channels[0], decoder_dim, kernel_size=1)
+        self.input_proj_rot = nn.Conv2d(self.backbone.num_channels[1], decoder_dim, kernel_size=1)
+
+        self.query_embed_t = nn.Embedding(num_scenes, decoder_dim)
+        self.query_embed_rot = nn.Embedding(num_scenes, decoder_dim)
 
         self.log_softmax = nn.LogSoftmax(dim=1)
 
-        self.scene_embed = nn.Linear(hidden_dim, num_scenes)
+        self.scene_embed = nn.Linear(decoder_dim, num_scenes)
         self.regressor_head_t = [PoseRegressor(decoder_dim, 3) for _ in range(num_scenes)]
         self.regressor_head_rot = [PoseRegressor(decoder_dim, 4) for _ in range(num_scenes)]
 
@@ -61,8 +61,8 @@ class TransPoseNet(nn.Module):
         # Run through the transformer to translate to "camera-pose" language
         assert mask_t is not None
         assert mask_rot is not None
-        local_descs_t = self.transformer_t(self.input_proj_t(src), mask_t, self.query_embed_t.weight, pos[0])[0]
-        local_descs_rot = self.transformer_rot(self.input_proj_rot(src), mask_rot, self.query_embed_rot.weight, pos[1])[0]
+        local_descs_t = self.transformer_t(self.input_proj_t(src_t), mask_t, self.query_embed_t.weight, pos[0])[0]
+        local_descs_rot = self.transformer_rot(self.input_proj_rot(src_rot), mask_rot, self.query_embed_rot.weight, pos[1])[0]
 
         scene_log_distr = self.log_softmax(self.scene_embed(torch.cat((local_descs_t, local_descs_rot), dim=1)))
         max_vals = scene_log_distr.max(dim=1)
