@@ -24,7 +24,7 @@
             "level": "DEBUG",
             "formatter": "full",
             "class": "logging.FileHandler",
-            "filename": "dcpr",
+            "filename": "run",
             "mode": "w"
         }
     },
