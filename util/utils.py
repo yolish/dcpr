@@ -8,6 +8,7 @@ from os import mkdir, getcwd
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import torch.nn.functional as F
 
 # Logging and output utils
 ##########################
@@ -63,8 +64,10 @@ def pose_err(est_pose, gt_pose):
     :return: position error(s) and orientation errors(s)
     """
     posit_err = torch.norm(est_pose[:, 0:3] - gt_pose[:, 0:3], dim=1)
-    inner_prod = torch.bmm(est_pose[:, 3:7].view(est_pose[:, 3:7].shape[0], 1, est_pose[:, 3:7].shape[1]),
-                           gt_pose[:, 3:7].view(gt_pose[:, 3:7].shape[0], gt_pose[:, 3:7].shape[1], 1))
+    est_pose_q = F.normalize(est_pose[:, 3:], p=2, dim=1)
+    gt_pose_q = F.normalize(gt_pose[:, 3:], p=2, dim=1)
+    inner_prod = torch.bmm(est_pose_q.view(est_pose_q.shape[0], 1, est_pose_q.shape[1]),
+                           gt_pose_q.view(gt_pose_q.shape[0], gt_pose_q.shape[1], 1))
     orient_err = 2 * torch.acos(torch.abs(inner_prod)) * 180 / np.pi
     return posit_err, orient_err
 
