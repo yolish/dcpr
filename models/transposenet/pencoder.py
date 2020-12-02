@@ -180,7 +180,7 @@ def build_position_encoding(config):
     if learn_embedding_with_pose_token:
         position_embedding = PositionEmbeddingLearnedWithPoseToken(N_steps)
     else:
-        PositionEmbeddingLearned(N_steps)
+        position_embedding = PositionEmbeddingLearned(N_steps)
 
 
     return position_embedding
