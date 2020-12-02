@@ -49,7 +49,7 @@ class Joiner(nn.Sequential):
             out.append(x)
             # position encoding
             ret = self[1](x)
-            if isinstance(ret, 'tuple'):
+            if isinstance(ret, tuple):
                 p_emb, m_emb = ret
                 pos.append([p_emb.to(x.tensors.dtype), m_emb.to(x.tensors.dtype)])
             else:
