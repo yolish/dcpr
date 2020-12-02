@@ -44,7 +44,7 @@ class Transformer(nn.Module):
                                                 dropout, activation, normalize_before)
         decoder_norm = nn.LayerNorm(d_model)
         self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm,
-                                          return_intermediate=return_intermediate_dec)
+                                          return_intermediate=config.get("return_intermediate_dec"))
 
         self._reset_parameters()
 
