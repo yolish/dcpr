@@ -14,8 +14,8 @@ class CameraPoseLoss(nn.Module):
         """
         super(CameraPoseLoss, self).__init__()
         self.learnable = config.get("learnable")
-        self.sx = torch.nn.Parameter(torch.Tensor(config.get("s_x")), requires_grad=self.learnable)
-        self.sq = torch.nn.Parameter(torch.Tensor(config.get("s_q")), requires_grad=self.learnable)
+        self.s_x = torch.nn.Parameter(torch.Tensor([config.get("s_x")]), requires_grad=self.learnable)
+        self.s_q = torch.nn.Parameter(torch.Tensor([config.get("s_q")]), requires_grad=self.learnable)
         self.norm = config.get("norm")
 
     def forward(self, est_pose, gt_pose):
@@ -26,12 +26,12 @@ class CameraPoseLoss(nn.Module):
             :return: camera pose loss
             """
             # Position loss
-            l_x = torch.norm(gt_pose[:, 0:3] - est_pose[:, 0:3], dim=1, p=self._norm).mean()
-            # Orientation loss (normalize to unit norm)
+            l_x = torch.norm(gt_pose[:, 0:3] - est_pose[:, 0:3], dim=1, p=self.norm).mean()
+            # Orientation loss (normalized to unit norm)
             l_q = torch.norm(F.normalize(gt_pose[:, 3:], p=2, dim=1) - F.normalize(est_pose[:, 3:], p=2, dim=1),
-                             dim=1, p=self._norm).mean()
+                             dim=1, p=self.norm).mean()
 
             if self.learnable:
-                return l_x * torch.exp(-self.s_x) + self._sx + l_q * torch.exp(-self.s_q) + self._sq
+                return l_x * torch.exp(-self.s_x) + self.s_x + l_q * torch.exp(-self.s_q) + self.s_q
             else:
                 return self.s_x*l_x + self.s_q*l_q
