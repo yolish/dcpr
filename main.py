@@ -178,6 +178,8 @@ if __name__ == "__main__":
             scheduler.step()
 
         logging.info('Training completed')
+        torch.save(model.state_dict(), checkpoint_prefix + '_final.pth'.format(epoch))
+
         # Plot the loss function
         loss_fig_path = checkpoint_prefix + "_loss_fig.png"
         utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
@@ -205,12 +207,15 @@ if __name__ == "__main__":
             for i, minibatch in enumerate(dataloader, 0):
                 img = minibatch.get('img').to(device)
                 gt_pose = minibatch.get('pose').to(device).to(dtype=torch.float32)
+                scene = minibatch.get('scene')
 
                 # Forward pass to predict the pose
                 tic = time.time()
                 est_pose = model(img)
                 toc = time.time() - tic
 
+                if isinstance(est_pose, tuple):
+                    est_pose, scene_distr = est_pose
                 # Evaluate error
                 posit_err, orient_err = utils.pose_err(est_pose, gt_pose)
 
