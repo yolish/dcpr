@@ -9,6 +9,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn.functional as F
+from torchvision import transforms
 
 # Logging and output utils
 ##########################
@@ -17,7 +18,7 @@ def get_stamp_from_log():
     Get the time stamp from the log file
     :return:
     """
-    return split(logging.getLogger().handlers[0].baseFilename)[-1]
+    return split(logging.getLogger().handlers[0].baseFilename)[-1].replace(".log","")
 
 
 def create_output_dir(name):
@@ -81,3 +82,27 @@ def plot_loss_func(sample_count, loss_vals, loss_fig_path):
     plt.xlabel('Number of samples')
     plt.ylabel('Loss')
     plt.savefig(loss_fig_path)
+
+# Augmentations
+train_transforms = {
+    'baseline': transforms.Compose([transforms.ToPILImage(),
+                                    transforms.Resize(256),
+                                    transforms.RandomCrop(224),
+                                    transforms.ColorJitter(0.5, 0.5, 0.5, 0.2),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                             std=[0.229, 0.224, 0.225])])
+
+}
+test_transforms = {
+    'baseline': transforms.Compose([transforms.ToPILImage(),
+                                    transforms.Resize(256),
+                                    transforms.CenterCrop(224),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                             std=[0.229, 0.224, 0.225])
+        ])
+}
+
+
+
