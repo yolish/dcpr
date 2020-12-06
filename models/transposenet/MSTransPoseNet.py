@@ -40,12 +40,12 @@ class MSTransPoseNet(nn.Module):
         self.regressor_head_t = nn.Sequential(*[PoseRegressor(decoder_dim, 3) for _ in range(num_scenes)])
         self.regressor_head_rot = nn.Sequential(*[PoseRegressor(decoder_dim, 4) for _ in range(num_scenes)])
 
-    def forward_encoder(self, samples: NestedTensor):
+    def forward_transformers(self, data):
         """
-        The forward expects a NestedTensor, which consists of:
-               - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
-               - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels NOT USED
+        Forward of the Transformers
         """
+        samples = data.get('img')
+        scene_indices = data.get('scene')
         batch_size = samples.shape[0]
 
         # Handle data structures
@@ -64,35 +64,51 @@ class MSTransPoseNet(nn.Module):
         local_descs_t = self.transformer_t(self.input_proj_t(src_t), mask_t, self.query_embed_t.weight, pos[0])[0][0]
         local_descs_rot = self.transformer_rot(self.input_proj_rot(src_rot), mask_rot, self.query_embed_rot.weight, pos[1])[0][0]
 
+        # Get the scene index with FC + log-softmax
         scene_log_distr = self.log_softmax(self.scene_embed(torch.cat((local_descs_t, local_descs_rot), dim=2))).squeeze(2)
-        max_vals, max_indices = scene_log_distr.max(dim=1)
+        _, max_indices = scene_log_distr.max(dim=1)
+        if scene_indices is not None:
+            max_indices = scene_indices
+        # Take the global latents by zeroing other scene's predictions and summing up
         w = local_descs_t*0
         w[range(batch_size),max_indices, :] = 1
         global_desc_t = torch.sum(w * local_descs_t, dim=1)
         global_desc_rot = torch.sum(w * local_descs_rot, dim=1)
 
-        return global_desc_t, global_desc_rot, scene_log_distr, max_indices
+        return {'global_desc_t':global_desc_t,
+                'global_desc_rot':global_desc_rot,
+                'scene_log_distr':scene_log_distr,
+                'max_indices':max_indices}
 
-
-    def forward_heads(self, global_desc_t, global_desc_rot, max_indices):
-        # We can only use argmax to index the weights
+    def forward_heads(self, transformers_res):
+        """
+        Forward pass of the MLP heads
+        """
+        global_desc_t = transformers_res.get('global_desc_t')
+        global_desc_rot = transformers_res.get('global_desc_rot')
+        max_indices = transformers_res.get('max_indices') # We can only use the max index for weights selection
         batch_size = global_desc_t.shape[0]
         expected_pose = torch.zeros((batch_size,7)).to(global_desc_t.device).to(global_desc_t.dtype)
         for i in range(batch_size):
             x_t = self.regressor_head_t[max_indices[i]](global_desc_t[i].unsqueeze(0))
             x_rot = self.regressor_head_rot[max_indices[i]](global_desc_rot[i].unsqueeze(0))
             expected_pose[i, :] = torch.cat((x_t, x_rot), dim=1)
-        return expected_pose
+        return {'pose':expected_pose, 'scene_log_distr':transformers_res.get('scene_log_distr')}
 
-    def forward(self, samples: NestedTensor):
-        """ The forward expects a NestedTensor, which consists of:
+    def forward(self, data):
+        """ The forward pass expects a dictionary with the following keys-values
+         'img' -- NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels NOT USED
+         'scene_indices': ground truth scene indices for each image (can be None)
 
-            returns an expected pose and (log) probability distribution over scenes
+        returns a dictionary with the following keys-values;
+        'pose': expected pose (NX7)
+        'log_scene_distr': (log) probability distribution over scenes
         """
-        global_desc_t, global_desc_rot, scene_log_distr, max_indices = self.forward_encoder(samples)
+        transformers_res = self.forward_transformers(data)
         # Regress the pose from the image descriptors
-        expected_pose = self.forward_heads(global_desc_t, global_desc_rot, max_indices)
-        return expected_pose, scene_log_distr
+
+        heads_res = self.forward_heads(transformers_res)
+        return heads_res
 
