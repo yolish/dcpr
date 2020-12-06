@@ -5,7 +5,6 @@ import argparse
 import torch
 import numpy as np
 import json
-from torchvision import transforms
 import logging
 from util import utils
 import time
@@ -13,6 +12,7 @@ from datasets.CameraPoseDataset import CameraPoseDataset
 from models.pose_losses import CameraPoseLoss
 from models.pose_regressors import get_model
 from os.path import join
+
 
 
 if __name__ == "__main__":
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Load the checkpoint if needed
     if args.checkpoint_path:
         model.load_state_dict(torch.load(args.checkpoint_path, map_location=device_id))
-        logging.info("Initializing from checkpoint: {}".format(args.args.checkpoint_path))
+        logging.info("Initializing from checkpoint: {}".format(args.checkpoint_path))
 
     if args.mode == 'train':
         # Set to train mode
@@ -93,15 +93,8 @@ if __name__ == "__main__":
                                                     gamma=config.get('lr_scheduler_gamma'))
 
         # Set the dataset and data loader
-        data_transform = transforms.Compose([transforms.ToPILImage(),
-                                    transforms.Resize(256),
-                                    transforms.RandomCrop(224),
-                                    transforms.ColorJitter(0.5, 0.5, 0.5, 0.2),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                             std=[0.229, 0.224, 0.225])
-        ])
-        dataset = CameraPoseDataset(args.dataset_path, args.labels_file, data_transform)
+        transform = utils.test_transforms.get('baseline')
+        dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform)
         loader_params = {'batch_size': config.get('batch_size'),
                                   'shuffle': True,
                                   'num_workers': config.get('n_workers')}
@@ -124,17 +117,18 @@ if __name__ == "__main__":
             n_samples = 0
 
             for batch_idx, minibatch in enumerate(dataloader):
-                img = minibatch.get('img').to(device)
-                gt_pose = minibatch.get('pose').to(device).to(dtype=torch.float32)
+                for k, v in minibatch.items():
+                    minibatch[k] = v.to(device)
+                gt_pose = minibatch.get('pose').to(dtype=torch.float32)
                 gt_scene = minibatch.get('scene').to(device)
-                batch_size = img.shape[0]
+                batch_size = gt_pose.shape[0]
                 n_samples += batch_size
                 n_total_samples += batch_size
 
                 if freeze: # For TransPoseNet
                     model.eval()
                     with torch.no_grad():
-                        global_desc_t, global_desc_rot = model.forward_encoder(img)
+                        transformers_res = model.forward_transformers(minibatch)
                     model.train()
 
                 # Zero the gradients
@@ -142,14 +136,15 @@ if __name__ == "__main__":
 
                 # Forward pass to estimate the pose
                 if freeze:
-                    est_pose = model.forward_heads(global_desc_t, global_desc_rot)
+                    res = model.forward_heads(transformers_res)
                 else:
-                    est_pose = model(img)
+                    res = model(minibatch)
 
-                if isinstance(est_pose, tuple):
-                    est_pose, log_scene_distr = est_pose
+                est_pose = res.get('pose')
+                est_scene_log_distr = res.get('scene_log_distr')
+                if est_scene_log_distr is not None:
                     # Pose Loss + Scene Loss
-                    criterion = pose_loss(est_pose, gt_pose) + nll_loss(log_scene_distr, gt_scene)
+                    criterion = pose_loss(est_pose, gt_pose) + nll_loss(est_scene_log_distr, gt_scene)
                 else:
                     # Pose loss
                     criterion = pose_loss(est_pose, gt_pose)
@@ -166,10 +161,11 @@ if __name__ == "__main__":
                 # Record loss and performance on train set
                 if batch_idx % n_freq_print == 0:
                     posit_err, orient_err = utils.pose_err(est_pose.detach(), gt_pose.detach())
-                    logging.info("[Batch-{}/Epoch-{}] running camera pose loss: {:.3f}, camera pose error: {:.2f}[m], {:.2f}[deg]".format(
-                                                                                                batch_idx+1, epoch+1, (running_loss/n_samples),
-                                                                                                posit_err.mean().item(),
-                                                                                                orient_err.mean().item()))
+                    logging.info("[Batch-{}/Epoch-{}] running camera pose loss: {:.3f}, "
+                                 "camera pose error: {:.2f}[m], {:.2f}[deg]".format(
+                                                                        batch_idx+1, epoch+1, (running_loss/n_samples),
+                                                                        posit_err.mean().item(),
+                                                                        orient_err.mean().item()))
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
                 torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
@@ -189,13 +185,7 @@ if __name__ == "__main__":
         model.eval()
 
         # Set the dataset and data loader
-        transform = data_transform = transforms.Compose([transforms.ToPILImage(),
-                                    transforms.Resize(256),
-                                    transforms.CenterCrop(224),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                             std=[0.229, 0.224, 0.225])
-        ])
+        transform = utils.test_transforms.get('baseline')
         dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
@@ -205,17 +195,17 @@ if __name__ == "__main__":
         stats = np.zeros((len(dataloader.dataset), 3))
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
-                img = minibatch.get('img').to(device)
-                gt_pose = minibatch.get('pose').to(device).to(dtype=torch.float32)
-                scene = minibatch.get('scene')
+                for k, v in minibatch.items():
+                    minibatch[k] = v.to(device)
+                gt_scene = minibatch.get('scene')
+                minibatch['scene'] = None # avoid using ground-truth scene during prediction
+                gt_pose = minibatch.get('pose').to(dtype=torch.float32)
 
                 # Forward pass to predict the pose
                 tic = time.time()
-                est_pose = model(img)
-                toc = time.time() - tic
+                est_pose = model(minibatch).get('pose')
+                toc = time.time()
 
-                if isinstance(est_pose, tuple):
-                    est_pose, scene_distr = est_pose
                 # Evaluate error
                 posit_err, orient_err = utils.pose_err(est_pose, gt_pose)
 
@@ -225,13 +215,13 @@ if __name__ == "__main__":
                 stats[i, 2] = (toc - tic)*1000
 
                 # Record
-                logging.info("Pose error: {}[m], {}[deg], inferred in {}[ms]".format(
+                logging.info("Pose error: {:.3f}[m], {:.3f}[deg], inferred in {:.2f}[ms]".format(
                     stats[i, 0],  stats[i, 1],  stats[i, 2]))
 
         # Record overall statistics
         logging.info("Performance of {} on {}".format(args.checkpoint_path, args.labels_file))
-        logging.info("Median pose error: {}[m], {}[deg]".format(np.median(stats[0], np.median(stats[1]))))
-        logging.info("Mean inference time:{}[ms".format(np.median(stats[2])))
+        logging.info("Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.median(stats[:, 0]), np.median(stats[:, 1])))
+        logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
 
 
 
