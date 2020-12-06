@@ -10,13 +10,11 @@ class PoseNet(nn.Module):
     A class to represent a classic pose regressor (PoseNet) with resnet-152 backbone
     PoseNet: A Convolutional Network for Real-Time 6-DOF Camera Relocalization,
     Kendall et al., 2015
-	 """
-
+    """
     def __init__(self, backbone_path):
         """
         Constructor
         :param backbone_path: backbone path to a resnet backbone
-        :param use_elu: (bool) indicates whether to use ELU or RELU activation
         """
         super(PoseNet, self).__init__()
 
@@ -40,19 +38,20 @@ class PoseNet(nn.Module):
             if isinstance(m, nn.Linear):
                 torch.nn.init.kaiming_normal_(m.weight)
 
-    def forward(self, x):
+    def forward(self, data):
         """
         Forward pass
-        :param x: (torch.Tensor) query input image (N X C X H X W)
-        :return: (torch.Tensor) 7-dimensional absolute pose for (N X 7)
+        :param data: (torch.Tensor) dictionary with key-value 'img' -- input image (N X C X H X W)
+        :return: (torch.Tensor) dictionary with key-value 'pose' -- 7-dimensional absolute pose for (N X 7)
         """
+        x = data.get('img')
         x = self.avg_pooling_2d(self.backnone(x))  # N X 3 X 224 X 224 -> Nx2048x7x7 -> Nx2048x1
         x = x.view(x.size(0), -1)  # output shape Nx2048
 
         x = self.dropout(F.relu(self.fc1_gp(x)))
         p_x = self.fc2(x)
         p_q = self.fc3(x)
-        return torch.cat((p_x, p_q), dim=1)
+        return {'pose': torch.cat((p_x, p_q), dim=1)}
 
 
 def copy_modules(model, start_idx, end_idx):
