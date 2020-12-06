@@ -1,9 +1,9 @@
 # TransPoseNet 
 This repository implements the TransPoseNet architecture described in our paper: "Paying Attention to Activation Maps in Camera Pose Regression".
 
-TransPoseNet introduces an attention-based camera pose regression scheme (Fig. 1). 
+TransPoseNet introduces an attention-based camera pose regression scheme (Fig. 1): 
 
-[Figure 1 TransPoseNet: an attention-based camera pose regression](yolish.github.com/transposenet/img/transposenet.png)
+![TransPoseNet localization scheme](img/transposenet.png?raw=true "Fig. 1 ")
 
 The input image is
 first encoded by a convolutional backbone. Two activation maps, at different resolutions, are transformed into sequential representations. The two activation sequences are analyzed by dual Transformer encoders, one per regression task. We depict the attention weights via
