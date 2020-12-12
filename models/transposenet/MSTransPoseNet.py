@@ -43,6 +43,14 @@ class MSTransPoseNet(nn.Module):
     def forward_transformers(self, data):
         """
         Forward of the Transformers
+        The forward pass expects a dictionary with key-value 'img' -- NestedTensor, which consists of:
+               - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
+               - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels NOT USED
+        return a dictionary with the following keys--values:
+            global_desc_t: latent representation from the position encoder
+            global_dec_rot: latent representation from the orientation encoder
+            scene_log_distr: the log softmax over the scenes
+            max_indices: the index of the max value in the scene distribution
         """
         samples = data.get('img')
         scene_indices = data.get('scene')
@@ -83,6 +91,12 @@ class MSTransPoseNet(nn.Module):
     def forward_heads(self, transformers_res):
         """
         Forward pass of the MLP heads
+        The forward pass execpts a dictionary with two keys-values:
+        global_desc_t: latent representation from the position encoder
+        global_dec_rot: latent representation from the orientation encoder
+        scene_log_distr: the log softmax over the scenes
+        max_indices: the index of the max value in the scene distribution
+        returns: dictionary with key-value 'pose'--expected pose (NX7) and scene_log_distr
         """
         global_desc_t = transformers_res.get('global_desc_t')
         global_desc_rot = transformers_res.get('global_desc_rot')
