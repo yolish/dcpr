@@ -49,8 +49,8 @@ class AblMSTransPoseNet(nn.Module):
         self.use_prior = config.get("use_prior_t_for_rot")
 
         # Regressors for position (t) and orientation (rot)
-        self.regressor_head_t = PoseRegressor(decoder_dim, 3)
-        self.regressor_head_rot = PoseRegressor(decoder_dim, 4, self.use_prior)
+        self.regressor_head_t = nn.Sequential(*[PoseRegressor(decoder_dim, 3) for _ in range(num_scenes)])
+        self.regressor_head_rot = nn.Sequential(*[PoseRegressor(decoder_dim, 4) for _ in range(num_scenes)])
 
     def forward_transformers(self, data):
         """
@@ -89,7 +89,7 @@ class AblMSTransPoseNet(nn.Module):
         global_desc_rot = local_descs_rot[:, 0, :]
 
         scene_log_distr = self.log_softmax(
-            self.scene_embed(torch.cat((local_descs_t, local_descs_rot), dim=2))).squeeze(2)
+            self.scene_embed(torch.cat((global_desc_t, global_desc_rot), dim=1)))
         _, max_indices = scene_log_distr.max(dim=1)
         if scene_indices is not None:
             max_indices = scene_indices
