@@ -199,6 +199,7 @@ if __name__ == "__main__":
                     minibatch[k] = v.to(device)
                 gt_scene = minibatch.get('scene')
                 minibatch['scene'] = None # avoid using ground-truth scene during prediction
+
                 gt_pose = minibatch.get('pose').to(dtype=torch.float32)
 
                 # Forward pass to predict the pose
