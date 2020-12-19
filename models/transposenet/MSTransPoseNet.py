@@ -1,5 +1,5 @@
 """
-The TransPoseNet model
+The Multi-Scene TransPoseNet model
 """
 
 import torch
