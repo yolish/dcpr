@@ -10,7 +10,7 @@ class CameraPoseDataset(Dataset):
         A class representing a dataset of images and their poses
     """
 
-    def __init__(self, dataset_path, labels_file, data_transform=None, equalize_scenes=True):
+    def __init__(self, dataset_path, labels_file, data_transform=None, equalize_scenes=False):
         """
         :param dataset_path: (str) the path to the dataset
         :param labels_file: (str) a file with images and their path labels
@@ -69,6 +69,3 @@ def read_labels_file(labels_file, dataset_path):
     poses[:, 5] = df['q3'].values
     poses[:, 6] = df['q4'].values
     return imgs_paths, poses, scenes, scenes_ids
-
-
-
