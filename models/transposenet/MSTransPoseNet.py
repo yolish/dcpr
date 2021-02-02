@@ -23,8 +23,14 @@ class MSTransPoseNet(nn.Module):
         num_scenes = config.get("num_scenes")
         self.backbone = build_backbone(config)
 
-        self.transformer_t = Transformer(config)
-        self.transformer_rot = Transformer(config)
+        config_t = {**config}
+        config_t["num_encoder_layers"] = config["num_t_encoder_layers"]
+        onfig_t["num_decoder_layers"] = config["num_t_decoder_layers"]
+        config_rot = {**config}
+        config_rot["num_encoder_layers"] = config["num_rot_encoder_layers"]
+        config_rot["num_decoder_layers"] = config["num_rot_decoder_layers"]
+        self.transformer_t = Transformer(config_t)
+        self.transformer_rot = Transformer(config_rot)
 
         decoder_dim = self.transformer_t.d_model
 
