@@ -25,7 +25,7 @@ class MSTransPoseNet(nn.Module):
 
         config_t = {**config}
         config_t["num_encoder_layers"] = config["num_t_encoder_layers"]
-        onfig_t["num_decoder_layers"] = config["num_t_decoder_layers"]
+        config_t["num_decoder_layers"] = config["num_t_decoder_layers"]
         config_rot = {**config}
         config_rot["num_encoder_layers"] = config["num_rot_encoder_layers"]
         config_rot["num_decoder_layers"] = config["num_rot_decoder_layers"]
