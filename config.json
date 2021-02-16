@@ -8,15 +8,15 @@
 	"posenet": {
 		"batch_size": 32,
 		"learnable": true,
-		"s_x": -3,
+		"s_x": -3.0,
 		"s_q": -6.5,
 		"norm": 2,
-		"lr": 1e-4,
-		"weight_decay": 1e-5,
+		"lr": 1e-3,
+		"weight_decay": 1e-4,
 		"eps": 1e-10,
-		"lr_scheduler_step_size": 100,
+		"lr_scheduler_step_size": 200,
 		"lr_scheduler_gamma": 0.5,
-		"n_epochs": 500
+		"n_epochs": 600
 	},
 	"transposenet": {
 		"batch_size": 8,
@@ -79,8 +79,10 @@
 		"lr_scheduler_gamma": 0.1,
 		"lr_scheduler_step_size": 200,
 		"n_epochs": 600,
-		"num_encoder_layers": 6,
-		"num_decoder_layers": 6,
+		"num_t_encoder_layers": 6,
+		"num_t_decoder_layers": 6,
+		"num_rot_encoder_layers": 6,
+		"num_rot_decoder_layers": 6,
 		"dim_feedforward": 256,
 		"hidden_dim":256,
 		"dropout": 0.1,
@@ -89,13 +91,69 @@
 		"freeze": false,
 		"freeze_exclude_phrase": "regressor_head_rot"
 	},
-	"ems-transposenet":
+	"ems-transposenet-1":
+	{
+		"batch_size": 8,
+        "equalize_scenes": false,
+		"num_scenes": 7,
+		"learnable": true,
+		"s_x": 0.0,
+		"s_q": -3.0,
+		"lr": 1e-4,
+		"norm": 2,
+		"weight_decay": 1e-4,
+		"eps": 1e-10,
+		"lr_scheduler_gamma": 0.1,
+		"lr_scheduler_step_size": 10,
+		"n_epochs": 30,
+		"num_t_encoder_layers": 6,
+		"num_t_decoder_layers": 6,
+		"num_rot_encoder_layers": 4,
+		"num_rot_decoder_layers": 4,
+		"dim_feedforward": 256,
+		"hidden_dim":256,
+		"dropout": 0.1,
+		"nheads": 4,
+        "reduction": ["reduction_4", "reduction_3"],
+		"freeze": false,
+		"freeze_exclude_phrase": "regressor_head_rot"
+       
+	},
+		"ems-transposenet":
+	{
+		"batch_size": 8,
+        "equalize_scenes": false,
+		"num_scenes": 12,
+		"learnable": true,
+		"s_x": 0.0,
+		"s_q": -3.0,
+		"lr": 1e-4,
+		"norm": 2,
+		"weight_decay": 1e-4,
+		"eps": 1e-10,
+		"lr_scheduler_gamma": 0.1,
+		"lr_scheduler_step_size": 10,
+		"n_epochs": 30,
+		"num_t_encoder_layers": 6,
+		"num_t_decoder_layers": 6,
+		"num_rot_encoder_layers": 6,
+		"num_rot_decoder_layers": 6,
+		"dim_feedforward": 256,
+		"hidden_dim":256,
+		"dropout": 0.1,
+		"nheads": 4,
+        "reduction": ["reduction_4", "reduction_3"],
+		"freeze": false,
+		"freeze_exclude_phrase": "regressor_head_rot"
+
+	},
+	"ems-transposenet-cambridge":
 	{
 		"batch_size": 8,
         "equalize_scenes": true,
 		"num_scenes": 4,
 		"learnable": true,
-		"s_x": -3,
+		"s_x": -3.0,
 		"s_q": -6.5,
 		"lr": 1e-4,
 		"norm": 2,
@@ -115,8 +173,37 @@
         "reduction": ["reduction_4", "reduction_3"],
 		"freeze": false,
 		"freeze_exclude_phrase": "regressor_head_rot"
-       
+
+	},
+		"ems-transposenet-7scenes":
+	{
+		"batch_size": 8,
+        "equalize_scenes": false,
+		"num_scenes": 7,
+		"learnable": true,
+		"s_x": 0.0,
+		"s_q": -3.0,
+		"lr": 1e-4,
+		"norm": 2,
+		"weight_decay": 1e-4,
+		"eps": 1e-10,
+		"lr_scheduler_gamma": 0.1,
+		"lr_scheduler_step_size": 10,
+		"n_epochs": 30,
+		"num_t_encoder_layers": 6,
+		"num_t_decoder_layers": 6,
+		"num_rot_encoder_layers": 4,
+		"num_rot_decoder_layers": 4,
+		"dim_feedforward": 256,
+		"hidden_dim":256,
+		"dropout": 0.1,
+		"nheads": 4,
+        "reduction": ["reduction_4", "reduction_3"],
+		"freeze": false,
+		"freeze_exclude_phrase": "regressor_head_rot"
+
 	}
+
 	
 }
 
