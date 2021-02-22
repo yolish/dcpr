@@ -93,7 +93,7 @@ if __name__ == "__main__":
                                                     gamma=config.get('lr_scheduler_gamma'))
 
         # Set the dataset and data loader
-        transform = utils.test_transforms.get('baseline')
+        transform = utils.train_transforms.get('baseline')
         equalize_scenes = config.get("equalize_scenes")
         dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform, equalize_scenes)
         loader_params = {'batch_size': config.get('batch_size'),
