@@ -73,10 +73,17 @@ if __name__ == "__main__":
         # Freeze parts of the model if indicated
         freeze = config.get("freeze")
         freeze_exclude_phrase = config.get("freeze_exclude_phrase")
+        if isinstance(freeze_exclude_phrase, str):
+            freeze_exclude_phrase = [freeze_exclude_phrase]
         if freeze:
             for name, parameter in model.named_parameters():
-                if freeze_exclude_phrase not in name:
-                    parameter.requires_grad_(False)
+                freeze_param = True
+                for phrase in freeze_exclude_phrase:
+                    if phrase in name:
+                        freeze_param = False
+                        break
+                if freeze_param:
+                        parameter.requires_grad_(False)
 
         # Set the loss
         pose_loss = CameraPoseLoss(config).to(device)
@@ -93,7 +100,12 @@ if __name__ == "__main__":
                                                     gamma=config.get('lr_scheduler_gamma'))
 
         # Set the dataset and data loader
-        transform = utils.train_transforms.get('baseline')
+        no_augment = config.get("no_augment")
+        if no_augment:
+            transform = utils.test_transforms.get('baseline')
+        else:
+            transform = utils.train_transforms.get('baseline')
+
         equalize_scenes = config.get("equalize_scenes")
         dataset = CameraPoseDataset(args.dataset_path, args.labels_file, transform, equalize_scenes)
         loader_params = {'batch_size': config.get('batch_size'),
@@ -194,6 +206,7 @@ if __name__ == "__main__":
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
         stats = np.zeros((len(dataloader.dataset), 3))
+
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
                 for k, v in minibatch.items():
@@ -216,13 +229,12 @@ if __name__ == "__main__":
                 stats[i, 1] = orient_err.item()
                 stats[i, 2] = (toc - tic)*1000
 
-                # Record
                 logging.info("Pose error: {:.3f}[m], {:.3f}[deg], inferred in {:.2f}[ms]".format(
                     stats[i, 0],  stats[i, 1],  stats[i, 2]))
 
         # Record overall statistics
         logging.info("Performance of {} on {}".format(args.checkpoint_path, args.labels_file))
-        logging.info("Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.median(stats[:, 0]), np.median(stats[:, 1])))
+        logging.info("Median pose error: {:.3f}[m], {:.3f}[deg]".format(np.nanmedian(stats[:, 0]), np.nanmedian(stats[:, 1])))
         logging.info("Mean inference time:{:.2f}[ms]".format(np.mean(stats[:, 2])))
 
 
